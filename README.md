@@ -1,106 +1,189 @@
-# Wanderlust - Your Ultimate Travel Blog 🌍✈️
+# 🌍 Wanderlust Travel Blog (MERN + Docker)
 
-WanderLust is a simple MERN travel blog website ✈ This project is aimed to help people to contribute in open source, upskill in react and also master git.
+Welcome to **Wanderlust**, a full-stack travel blog project built using the **MERN stack** (MongoDB, Express, React, Node.js) and fully containerized using **Docker**.
 
-![Preview Image](https://github.com/krishnaacharyaa/wanderlust/assets/116620586/17ba9da6-225f-481d-87c0-5d5a010a9538)
+This guide covers everything from setup to running the application using Docker Compose.
 
-## [Figma Design File](https://www.figma.com/file/zqNcWGGKBo5Q2TwwVgR6G5/WanderLust--A-Travel-Blog-App?type=design&node-id=0%3A1&mode=design&t=c4oCG8N1Fjf7pxTt-1)
-## [Discord Channel](https://discord.gg/FEKasAdCrG)
+---
 
-## 🎯 Goal of this project
+## 📂 Project Structure
 
-At its core, this project embodies two important aims:
+```bash
+wanderlust/
+├── backend/              # Express API server
+│   ├── Dockerfile
+│   ├── .env.sample
+│   └── ...
+├── frontend/             # React frontend (Vite)
+│   ├── Dockerfile
+│   ├── .env.sample
+│   └── ...
+├── docker-compose.yml    # Multi-container setup
+└── README.md             # You are here!
+```
 
-1. **Start Your Open Source Journey**: It's aimed to kickstart your open-source journey. Here, you'll learn the basics of Git and get a solid grip on the MERN stack and I strongly believe that learning and building should go hand in hand.
-2. **React Mastery**: Once you've got the basics down, a whole new adventure begins of mastering React. This project covers everything, from simple form validation to advanced performance enhancements. And I've planned much more cool stuff to add in the near future if the project hits more number of contributors.
+---
 
-_I'd love for you to make the most of this project - it's all about learning, helping, and growing in the open-source world._
+## ⚙️ Phase 1: Dockerizing the Application
 
-## Setting up the project locally
+### ✅ MongoDB (Database)
 
-### Setting up the Backend
+**Image Used**: `mongo:latest`  
+**Port**: `27017`  
+**Volume**:
+```yaml
+volumes:
+  - ./backend/data:/data
+```
 
-1. **Fork and Clone the Repository**
+This persists the MongoDB data between restarts using a bind mount.
 
-   ```bash
-   git clone https://github.com/{your-username}/wanderlust.git
-   ```
+---
 
-2. **Navigate to the Backend Directory**
+### ✅ Backend (Node.js + Express)
 
-   ```bash
-   cd backend
-   ```
+**Directory**: `./backend`  
+**Port**: `5000`  
+**Dockerfile**:
+```Dockerfile
+FROM node:18
 
-3. **Install Required Dependencies**
+WORKDIR /app
 
-   ```bash
-   npm i
-   ```
+COPY package*.json ./
+RUN npm install
 
-4. **Set up your MongoDB Database**
+COPY . .
 
-   - Open MongoDB Compass and connect MongoDB locally at `mongodb://localhost:27017`.
+EXPOSE 5000
 
-5. **Import sample data**
+CMD ["npm", "start"]
+```
 
-   > To populate the database with sample posts, you can copy the content from the `backend/data/sample_posts.json` file and insert it as a document in the `wanderlust/posts` collection in your local MongoDB database using either MongoDB Compass or `mongoimport`.
+**Important Notes**:
+- Backend connects to MongoDB using the container name `mongo`:
+  ```
+  mongodb://mongo/wanderlust
+  ```
 
-   ```bash
-   mongoimport --db wanderlust --collection posts --file ./data/sample_posts.json --jsonArray
-   ```
+---
 
-6. **Configure Environment Variables**
+### ✅ Frontend (React + Vite)
 
-   ```bash
-   cp .env.sample .env
-   ```
+**Directory**: `./frontend`  
+**Port**: `5173`  
+**Dockerfile**:
+```Dockerfile
+FROM node:18
 
-7. **Start the Backend Server**
+WORKDIR /app
 
-   ```bash
-   npm start
-   ```
+COPY package*.json ./
+RUN npm install
 
-   > You should see the following on your terminal output on successful setup.
-   >
-   > ```bash
-   > [BACKEND] Server is running on port 5000
-   > [BACKEND] Database connected: mongodb://127.0.0.1/wanderlust
-   > ```
+COPY . .
 
-### Setting up the Frontend
+EXPOSE 5173
 
-1. **Open a New Terminal**
+CMD ["npm", "run", "dev", "--", "--host"]
+```
 
-   ```bash
-   cd frontend
-   ```
+**Environment File** (`.env.sample`):
+```env
+VITE_API_PATH=http://backend:5000
+```
 
-2. **Install Dependencies**
+This allows the frontend to reach the backend via Docker's internal service name `backend`.
 
-   ```bash
-   npm i
-   ```
+---
 
-3. **Configure Environment Variables**
+## 🔁 Phase 2: Docker Compose Setup
 
-   ```bash
-   cp .env.sample .env.local
-   ```
+`docker-compose.yml`:
 
-4. **Launch the Development Server**
+```yaml
+version: '3.8'
+services:
+  mongodb:
+    container_name: mongo
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./backend/data:/data
 
-   ```bash
-   npm run dev
-   ```
+  backend:
+    container_name: backend
+    build: ./backend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+    env_file:
+      - ./backend/.env.sample
 
-## 🌟 Ready to Contribute?
+  frontend:
+    container_name: frontend
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    env_file:
+      - ./frontend/.env.sample
+```
 
-Kindly go through [CONTRIBUTING.md](https://github.com/krishnaacharyaa/wanderlust/blob/main/.github/CONTRIBUTING.md) to understand everything from setup to contributing guidelines.
+---
 
-## 💖 Show Your Support
+## 🛠️ Phase 3: Running the App
 
-If you find this project interesting and inspiring, please consider showing your support by starring it on GitHub! Your star goes a long way in helping me reach more developers and encourages me to keep enhancing the project.
+Make sure Docker and Docker Compose are installed.
 
-🚀 Feel free to get in touch with me for any further queries or support, happy to help :)
+### Build & Start:
+```bash
+docker-compose up --build
+```
+
+### Stop:
+```bash
+docker-compose down
+```
+
+---
+
+## 🗂️ Phase 4: Import Sample Data
+
+You can import sample posts into MongoDB using:
+
+```bash
+docker exec -it mongo mongoimport   --db wanderlust   --collection posts   --file /data/sample_posts.json   --jsonArray
+```
+
+> This command loads initial blog post data into MongoDB.
+
+---
+
+## 🌐 Phase 5: Accessing the App
+
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:5000/api/posts
+
+Replace `localhost` with your IP if accessing externally.
+
+---
+
+## ✅ Final Checklist
+
+- [x] MongoDB running and accepting connections.
+- [x] Backend properly linked to MongoDB.
+- [x] Frontend fetching data from backend using `VITE_API_PATH`.
+- [x] Sample posts imported and visible in UI.
+
+---
+
+## 📌 To Do (Optional Enhancements)
+
+- Add Redis & caching
+- Implement user authentication
+- Deploy to cloud (Render, Heroku, EC2 with Nginx, etc.)
+- CI/CD pipeline using GitHub Actions
